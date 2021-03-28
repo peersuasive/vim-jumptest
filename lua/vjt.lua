@@ -6,35 +6,48 @@ local do_test = false
 
 local api = vim.api
 
-local function find_test(f)
-    local f = f:gsub("^src/main", "src/test"):gsub("%.java$", "Test.java")
+local function is_file_exists(f)
+    local cf = io.open(f, "rb")
     if f == nil then 
-        return nil, "Test Class not found."
-    else 
-        io.close()
-        return f 
+        return false end
+    io.close()
+    return true
+end
+
+local function find_test(f)
+    -- if class is Impl, just try without Impl first
+    -- if none is found, return without Impl
+    local r
+    if f:match('Impl%.java$') then
+        r = f:gsub("src/main/java", "src/test/java"):gsub("%Impl.java$", "Test.java")
+        if is_file_exists(r) then
+            return r
+        end
+    else
+        r = f:gsub("src/main/java", "src/test/java"):gsub("%.java$", "Test.java")
     end
-    return f
+    return r
 end
 
 local function find_class(f)
-    local f = f:gsub("^src/test", "src/main"):gsub("Test%.java", ".java")
-    -- check if file exists
-    local cf = io.open(f, "rb")
-    if f == nil then 
-        return nil, "Class not found."
-    else 
-        io.close()
-        return f 
+    -- look if an Impl exists
+    local r = f:gsub("src/test/java", "src/main/java"):gsub("Test%.java", "Impl.java")
+    if is_file_exists(r) then
+        return r
     end
+    local r = f:gsub("src/test/java", "src/main/java"):gsub("Test%.java", ".java")
+    if not is_file_exists(r) then
+        return nil, "Class not found"
+    end
+    return r
 end
 
 local function vjt()
-    local buf = vim.fn.bufname()
-    local bufname = vim.fn.fnamemodify(buf, ':p')
+    local bufnr = api.nvim_get_current_buf()
+    local bufname = api.nvim_buf_get_name(bufnr)
 
     local f, err
-    if bufname:match("^src/main") then
+    if bufname:match("src/main/java") then
         f, err = find_test(bufname)
     else
         f, err = find_class(bufname)
