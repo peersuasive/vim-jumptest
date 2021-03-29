@@ -8,20 +8,21 @@ local api = vim.api
 
 local function is_file_exists(f)
     local cf = io.open(f, "rb")
-    if f == nil then 
+    if cf == nil then 
         return false end
-    io.close()
+    io.close(cf)
     return true
 end
 
 local function find_test(f)
+    local f = f
     -- if class is Impl, just try without Impl first
     -- if none is found, return without Impl
     local r
     if f:match('Impl%.java$') then
-        r = f:gsub("src/main/java", "src/test/java"):gsub("%Impl.java$", "Test.java")
-        if is_file_exists(r) then
-            return r
+        r = f:gsub("src/main/java", "src/test/java"):gsub("Impl.java$", "Test.java")
+        if not is_file_exists(r) then
+            r = f:gsub("src/main/java", "src/test/java"):gsub("/impl/","/"):gsub("Impl.java$", "Test.java")
         end
     else
         r = f:gsub("src/main/java", "src/test/java"):gsub("%.java$", "Test.java")
@@ -30,12 +31,14 @@ local function find_test(f)
 end
 
 local function find_class(f)
-    -- look if an Impl exists
-    local r = f:gsub("src/test/java", "src/main/java"):gsub("Test%.java", "Impl.java")
-    if is_file_exists(r) then
-        return r
+    -- look if an Impl exists first
+    local r = f:gsub("src/test/java", "src/main/java"):gsub("ImplTest%.java", "Test.java"):gsub("Test%.java", "Impl.java")
+    if not is_file_exists(r) then
+        local i = r:gsub("src/main/java", "src/test/java"):match('^.*()/')
+        r = r:sub(1,i) .. "impl" .. r:sub(i) or nil
+        r = is_file_exists(r) and r or nil
     end
-    local r = f:gsub("src/test/java", "src/main/java"):gsub("Test%.java", ".java")
+    r = r or f:gsub("src/test/java", "src/main/java"):gsub("Test%.java", ".java")
     if not is_file_exists(r) then
         return nil, "Class not found"
     end
