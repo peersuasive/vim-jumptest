@@ -20,10 +20,26 @@ local function find_test(f)
     -- if none is found, return without Impl
     local r
     if f:match('Impl%.java$') then
-        r = f:gsub("src/main/java", "src/test/java"):gsub("Impl.java$", "Test.java")
-        if not is_file_exists(r) then
-            r = f:gsub("src/main/java", "src/test/java"):gsub("/impl/","/"):gsub("Impl.java$", "Test.java")
+        local rs, ref
+        -- try to find a test ending with Impl first
+        rs = f:gsub("src/main/java", "src/test/java"):gsub("Impl.java$", "ImplTest.java")
+        ref = rs
+        -- then without Impl if not found
+        if not is_file_exists(rs) then
+            rs = f:gsub("src/main/java", "src/test/java"):gsub("Impl.java$", "Test.java")
         end
+        -- or with the prefix I and without Impl and /impl/
+        if not is_file_exists(rs) then
+            rs = f:gsub("src/main/java", "src/test/java")
+                :gsub("/impl/","/")
+                :gsub("Impl.java$", "Test.java")
+                :gsub("/([^/]+%.java)$","/I%1")
+        end
+        -- then based on the assumed interface name
+        if not is_file_exists(rs) then
+            rs = f:gsub("src/main/java", "src/test/java"):gsub("/impl/","/"):gsub("Impl.java$", "Test.java")
+        end
+        r = ref
     else
         r = f:gsub("src/main/java", "src/test/java"):gsub("%.java$", "Test.java")
     end
@@ -32,7 +48,12 @@ end
 
 local function find_class(f)
     -- look if an Impl exists first
-    local r = f:gsub("src/test/java", "src/main/java"):gsub("ImplTest%.java", "Test.java"):gsub("Test%.java", "Impl.java")
+    --local r = f:gsub("src/test/java", "src/main/java"):gsub("ImplTest%.java", "Test.java"):gsub("Test%.java", "Impl.java")
+    local r = f:gsub("src/test/java", "src/main/java"):gsub("ImplTest%.java", "Test.java"):gsub("Test%.java", "Impl.java"):gsub("/I([^/]+%.java)$","/%1")
+    -- or try with the prefix I
+    if not is_file_exists(r) then
+        r = f:gsub("src/test/java", "src/main/java"):gsub("ImplTest%.java", "Test.java"):gsub("Test%.java", "Impl.java")
+    end
     if not is_file_exists(r) then
         local i = r:gsub("src/main/java", "src/test/java"):match('^.*()/')
         r = r:sub(1,i) .. "impl" .. r:sub(i) or nil
@@ -43,6 +64,15 @@ local function find_class(f)
         return nil, "Class not found"
     end
     return r
+end
+-- find class interface
+local function find_interface(f)
+    -- TODO
+end
+
+-- find class interface when in test
+local function find_interface_from_test(f)
+    -- TODO
 end
 
 local function vjt()
